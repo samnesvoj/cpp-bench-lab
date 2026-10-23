@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
@@ -78,11 +79,14 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    std::size_t name_width = 0;
+    for (const auto* b : selected) name_width = std::max(name_width, b->group.size() + 1 + b->name.size());
+
     benchlab::print_environment(std::cout, cfg);
     std::vector<benchlab::Result> results;
     for (const auto* b : selected) {
         results.push_back(benchlab::run(*b, cfg));
-        benchlab::print_row(std::cout, results.back(), results.size() == 1);
+        benchlab::print_row(std::cout, results.back(), results.size() == 1, name_width);
     }
     return 0;
 }
