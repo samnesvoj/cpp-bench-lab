@@ -43,6 +43,20 @@ ctest --test-dir build                    # unit tests + smoke runs
 | `--quick` | 5 short samples per benchmark (CI smoke runs) |
 | `--samples N` | timed samples per benchmark (default 15) |
 | `--seed N` | seed for generated inputs (default 42) |
+| `--format F` | `table` (default), `csv` or `json` |
+| `--output FILE` | write CSV/JSON to a file; the table is still printed |
+
+### Comparing runs
+
+Export results to compare compilers, flags or machines:
+
+```bash
+./build/cpp-bench-lab --format json --output gcc.json      # table on screen, JSON in the file
+./build/cpp-bench-lab --format csv > results.csv           # CSV on stdout, table on stderr
+```
+
+The JSON file records the compiler, C++ standard, build type, seed and sample count next to every statistic
+(median, MAD, mean, standard deviation, min, max), so a result never loses its context.
 
 ## How results are measured
 
