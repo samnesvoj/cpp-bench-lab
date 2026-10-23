@@ -45,6 +45,7 @@ ctest --test-dir build                    # unit tests + smoke runs
 | `--seed N` | seed for generated inputs (default 42) |
 | `--format F` | `table` (default), `csv` or `json` |
 | `--output FILE` | write CSV/JSON to a file; the table is still printed |
+| `--compare FILE` | add a *vs baseline* column against a previous `--format json` run |
 
 ### Comparing runs
 
@@ -57,6 +58,21 @@ Export results to compare compilers, flags or machines:
 
 The JSON file records the compiler, C++ standard, build type, seed and sample count next to every statistic
 (median, MAD, mean, standard deviation, min, max), so a result never loses its context.
+
+Then measure a change against that baseline:
+
+```console
+$ ./build/cpp-bench-lab --format json --output before.json
+$ # ...change compiler flags, the standard library or the code...
+$ ./build/cpp-bench-lab --compare before.json
+benchmark                          median     ±mad         min  ns/op   vs baseline
+-----------------------------------------------------------------------------------
+algorithms/std::sort random ints    12.15     0.17%       12.12        same
+...
+```
+
+Changes within 3% are reported as `same`; benchmarks missing from the baseline show `new`, and a note is printed
+when the baseline was built with a different compiler.
 
 ## How results are measured
 
