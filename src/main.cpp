@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -20,6 +21,8 @@ Options:
   --quick         fewer, shorter samples (for CI smoke runs)
   --samples N     timed samples per benchmark (default 15)
   --seed N        RNG seed for generated inputs (default 42)
+  --format F      table (default), csv or json
+  --output FILE   write csv/json results to FILE (progress table still goes to stdout)
   -h, --help      show this help
 )";
 
@@ -36,6 +39,8 @@ bool parse_size(const char* s, std::size_t& out) {
 int main(int argc, char** argv) {
     benchlab::Config cfg;
     std::string filter;
+    std::string format = "table";
+    std::string output;
     bool list = false;
     for (int i = 1; i < argc; ++i) {
         const std::string_view arg = argv[i];
@@ -49,6 +54,14 @@ int main(int argc, char** argv) {
             cfg.samples = 5;
             cfg.warmup = 1;
             cfg.min_sample_time = std::chrono::milliseconds(2);
+        } else if (arg == "--format" && has_value) {
+            format = argv[++i];
+            if (format != "table" && format != "csv" && format != "json") {
+                std::cerr << "--format expects table, csv or json\n";
+                return 2;
+            }
+        } else if (arg == "--output" && has_value) {
+            output = argv[++i];
         } else if (arg == "--filter" && has_value) {
             filter = argv[++i];
         } else if (arg == "--samples" && has_value && parse_size(argv[i + 1], cfg.samples)) {
@@ -82,11 +95,35 @@ int main(int argc, char** argv) {
     std::size_t name_width = 0;
     for (const auto* b : selected) name_width = std::max(name_width, b->group.size() + 1 + b->name.size());
 
-    benchlab::print_environment(std::cout, cfg);
+    // With machine-readable output on stdout, the human-readable table goes to stderr.
+    const bool to_stdout = format != "table" && output.empty();
+    std::ostream& table = to_stdout ? std::cerr : std::cout;
+    if (format == "table" && !output.empty()) {
+        std::cerr << "--output needs --format csv or json\n";
+        return 2;
+    }
+
+    benchlab::print_environment(table, cfg);
     std::vector<benchlab::Result> results;
     for (const auto* b : selected) {
         results.push_back(benchlab::run(*b, cfg));
-        benchlab::print_row(std::cout, results.back(), results.size() == 1, name_width);
+        benchlab::print_row(table, results.back(), results.size() == 1, name_width);
+    }
+    if (format == "table") return 0;
+
+    std::ofstream file;
+    if (!output.empty()) {
+        file.open(output);
+        if (!file) {
+            std::cerr << "cannot write " << output << "\n";
+            return 1;
+        }
+    }
+    std::ostream& out = output.empty() ? std::cout : file;
+    if (format == "csv") {
+        benchlab::write_csv(out, results);
+    } else {
+        benchlab::write_json(out, results, cfg);
     }
     return 0;
 }

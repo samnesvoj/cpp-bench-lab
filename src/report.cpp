@@ -6,9 +6,7 @@
 
 namespace benchlab {
 
-namespace {
-
-std::string compiler() {
+std::string compiler_name() {
 #if defined(__clang__)
     return "clang " + std::to_string(__clang_major__) + "." + std::to_string(__clang_minor__);
 #elif defined(__GNUC__)
@@ -20,10 +18,35 @@ std::string compiler() {
 #endif
 }
 
+namespace {
+
+constexpr bool kReleaseBuild =
+#ifdef NDEBUG
+    true;
+#else
+    false;
+#endif
+
+std::string json_escape(const std::string& s) {
+    std::string out;
+    for (char c : s) {
+        if (c == '"' || c == '\\') out += '\\';
+        out += c;
+    }
+    return out;
+}
+
+std::string csv_field(const std::string& s) {
+    if (s.find_first_of(",\"\n") == std::string::npos) return s;
+    std::string out = "\"";
+    for (char c : s) out += (c == '"') ? std::string("\"\"") : std::string(1, c);
+    return out + "\"";
+}
+
 }  // namespace
 
 void print_environment(std::ostream& os, const Config& cfg) {
-    os << "cpp-bench-lab · " << compiler() << " · C++" << (__cplusplus / 100 % 100)
+    os << "cpp-bench-lab · " << compiler_name() << " · C++" << (__cplusplus / 100 % 100)
 #ifdef NDEBUG
        << " · release"
 #else
@@ -43,6 +66,33 @@ void print_row(std::ostream& os, const Result& r, bool header, std::size_t name_
     os << std::left << std::setw(w) << (r.bench->group + "/" + r.bench->name) << std::right << std::fixed
        << std::setprecision(2) << std::setw(12) << s.median << std::setw(9) << (s.relative_mad() * 100) << "%"
        << std::setw(12) << s.min << "\n";
+}
+
+void write_csv(std::ostream& os, const std::vector<Result>& results) {
+    os << "group,name,n,repetitions,samples,median_ns,mad_ns,mean_ns,stddev_ns,min_ns,max_ns\n";
+    os << std::setprecision(6);
+    for (const auto& r : results) {
+        const auto& s = r.ns_per_op;
+        os << csv_field(r.bench->group) << ',' << csv_field(r.bench->name) << ',' << r.bench->n << ','
+           << r.repetitions << ',' << s.samples << ',' << s.median << ',' << s.mad << ',' << s.mean << ','
+           << s.stddev << ',' << s.min << ',' << s.max << "\n";
+    }
+}
+
+void write_json(std::ostream& os, const std::vector<Result>& results, const Config& cfg) {
+    os << std::setprecision(6);
+    os << "{\n  \"environment\": {\"compiler\": \"" << json_escape(compiler_name()) << "\", \"cplusplus\": " << __cplusplus
+       << ", \"release\": " << (kReleaseBuild ? "true" : "false") << ", \"seed\": " << cfg.seed
+       << ", \"samples\": " << cfg.samples << "},\n  \"unit\": \"ns/op\",\n  \"results\": [";
+    for (std::size_t i = 0; i < results.size(); ++i) {
+        const auto& r = results[i];
+        const auto& s = r.ns_per_op;
+        os << (i ? "," : "") << "\n    {\"group\": \"" << json_escape(r.bench->group) << "\", \"name\": \""
+           << json_escape(r.bench->name) << "\", \"n\": " << r.bench->n << ", \"repetitions\": " << r.repetitions
+           << ", \"median\": " << s.median << ", \"mad\": " << s.mad << ", \"mean\": " << s.mean
+           << ", \"stddev\": " << s.stddev << ", \"min\": " << s.min << ", \"max\": " << s.max << "}";
+    }
+    os << "\n  ]\n}\n";
 }
 
 }  // namespace benchlab
