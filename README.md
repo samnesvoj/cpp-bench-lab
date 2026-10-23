@@ -62,6 +62,18 @@ ctest --test-dir build                    # unit tests + smoke runs
 |---|---|
 | `containers` | `push_back` into `vector` (with/without `reserve`), `deque`, `list`; contiguous vs pointer-chasing traversal; lookups in `map`, `unordered_map` and a sorted `vector` |
 | `allocation` | `new`/`delete` of small objects vs `std::pmr` monotonic and pool resources; vector growth on the heap vs a stack buffer; copying short (SSO) vs long strings |
+| `algorithms` | `std::sort` vs `std::stable_sort` vs `std::ranges::sort` on random and already-sorted data; median by full sort vs `std::nth_element`; linear `find` vs `binary_search` on 16 and 4096 elements |
+
+## Things worth noticing
+
+Results depend on the standard library as much as on the hardware — which is exactly what the suite is for:
+
+- On libc++ (LLVM 17+, Apple clang), `std::stable_sort` of integers can beat `std::sort` because libc++ switches to a
+  radix sort for arithmetic types. With libstdc++ (GCC) the usual ordering returns.
+- `std::nth_element` finds a median roughly 3× faster than sorting everything.
+- For 16 elements a linear scan is in the same league as binary search; for 4096 it is ~50× slower.
+- Iterating a `std::list` whose nodes are scattered in memory is an order of magnitude slower than summing a
+  `std::vector`, even though both are O(n).
 
 ## Adding a benchmark
 
