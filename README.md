@@ -61,6 +61,7 @@ ctest --test-dir build                    # unit tests + smoke runs
 | Group | What it compares |
 |---|---|
 | `containers` | `push_back` into `vector` (with/without `reserve`), `deque`, `list`; contiguous vs pointer-chasing traversal; lookups in `map`, `unordered_map` and a sorted `vector` |
+| `allocation` | `new`/`delete` of small objects vs `std::pmr` monotonic and pool resources; vector growth on the heap vs a stack buffer; copying short (SSO) vs long strings |
 
 ## Adding a benchmark
 

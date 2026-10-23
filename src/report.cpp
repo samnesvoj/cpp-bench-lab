@@ -1,5 +1,6 @@
 #include "benchlab/report.hpp"
 
+#include <algorithm>
 #include <iomanip>
 #include <string>
 
@@ -31,14 +32,15 @@ void print_environment(std::ostream& os, const Config& cfg) {
        << " · seed " << cfg.seed << " · " << cfg.samples << " samples\n\n";
 }
 
-void print_row(std::ostream& os, const Result& r, bool header) {
+void print_row(std::ostream& os, const Result& r, bool header, std::size_t name_width) {
+    const auto w = static_cast<int>(std::max<std::size_t>(name_width, 9) + 2);
     if (header) {
-        os << std::left << std::setw(46) << "benchmark" << std::right << std::setw(12) << "median"
-           << std::setw(10) << "±mad" << std::setw(12) << "min" << "  ns/op\n";
-        os << std::string(46 + 12 + 10 + 12 + 7, '-') << "\n";
+        os << std::left << std::setw(w) << "benchmark" << std::right << std::setw(12) << "median" << std::setw(10)
+           << "±mad" << std::setw(12) << "min" << "  ns/op\n";
+        os << std::string(static_cast<std::size_t>(w) + 12 + 10 + 12 + 7, '-') << "\n";
     }
     const auto& s = r.ns_per_op;
-    os << std::left << std::setw(46) << (r.bench->group + "/" + r.bench->name) << std::right << std::fixed
+    os << std::left << std::setw(w) << (r.bench->group + "/" + r.bench->name) << std::right << std::fixed
        << std::setprecision(2) << std::setw(12) << s.median << std::setw(9) << (s.relative_mad() * 100) << "%"
        << std::setw(12) << s.min << "\n";
 }
