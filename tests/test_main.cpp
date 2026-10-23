@@ -6,6 +6,9 @@
 #include <string>
 #include <vector>
 
+#include <sstream>
+
+#include "benchlab/baseline.hpp"
 #include "benchlab/harness.hpp"
 #include "benchlab/stats.hpp"
 
@@ -107,6 +110,39 @@ TEST(inputs_are_reproducible_for_a_seed) {
     (void)benchlab::run(b, cfg);
     CHECK(first == seen);
     CHECK(first.size() >= 4);
+}
+
+TEST(parses_baseline_written_by_write_json) {
+    std::istringstream in(R"({
+  "environment": {"compiler": "gcc 14.2", "cplusplus": 202002, "release": true, "seed": 42, "samples": 15},
+  "unit": "ns/op",
+  "results": [
+    {"group": "containers", "name": "vector sum", "n": 10000, "repetitions": 64, "median": 0.05, "mad": 0.001},
+    {"group": "algorithms", "name": "say \"hi\"", "n": 1, "repetitions": 1, "median": 12.5, "mad": 0.1}
+  ]
+}
+)");
+    std::string error;
+    const auto b = benchlab::parse_baseline(in, error);
+    CHECK(b.has_value());
+    CHECK(b->compiler == "gcc 14.2");
+    CHECK(b->median_ns.size() == 2);
+    CHECK_NEAR(b->median_ns.at("containers/vector sum"), 0.05);
+    CHECK_NEAR(b->median_ns.at("algorithms/say \"hi\""), 12.5);
+}
+
+TEST(rejects_files_without_results) {
+    std::istringstream in("group,name,median\n");
+    std::string error;
+    CHECK(!benchlab::parse_baseline(in, error).has_value());
+    CHECK(error.find("--format json") != std::string::npos);
+}
+
+TEST(describes_changes) {
+    CHECK(benchlab::describe_change(10, 5) == "2.00x faster");
+    CHECK(benchlab::describe_change(5, 10) == "2.00x slower");
+    CHECK(benchlab::describe_change(10, 10.2) == "same");
+    CHECK(benchlab::describe_change(0, 1) == "n/a");
 }
 
 }  // namespace

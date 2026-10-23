@@ -3,9 +3,11 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <string_view>
 
+#include "benchlab/baseline.hpp"
 #include "benchlab/harness.hpp"
 #include "benchlab/report.hpp"
 
@@ -23,6 +25,7 @@ Options:
   --seed N        RNG seed for generated inputs (default 42)
   --format F      table (default), csv or json
   --output FILE   write csv/json results to FILE (progress table still goes to stdout)
+  --compare FILE  show the change against a previous --format json run
   -h, --help      show this help
 )";
 
@@ -41,6 +44,7 @@ int main(int argc, char** argv) {
     std::string filter;
     std::string format = "table";
     std::string output;
+    std::string compare;
     bool list = false;
     for (int i = 1; i < argc; ++i) {
         const std::string_view arg = argv[i];
@@ -60,6 +64,8 @@ int main(int argc, char** argv) {
                 std::cerr << "--format expects table, csv or json\n";
                 return 2;
             }
+        } else if (arg == "--compare" && has_value) {
+            compare = argv[++i];
         } else if (arg == "--output" && has_value) {
             output = argv[++i];
         } else if (arg == "--filter" && has_value) {
@@ -103,11 +109,26 @@ int main(int argc, char** argv) {
         return 2;
     }
 
+    std::optional<benchlab::Baseline> baseline;
+    if (!compare.empty()) {
+        std::ifstream in(compare);
+        std::string error = "cannot read file";
+        if (in) baseline = benchlab::parse_baseline(in, error);
+        if (!baseline) {
+            std::cerr << "--compare " << compare << ": " << error << "\n";
+            return 2;
+        }
+        if (baseline->compiler != benchlab::compiler_name()) {
+            std::cerr << "note: baseline was built with " << baseline->compiler << ", this run uses "
+                      << benchlab::compiler_name() << "\n";
+        }
+    }
+
     benchlab::print_environment(table, cfg);
     std::vector<benchlab::Result> results;
     for (const auto* b : selected) {
         results.push_back(benchlab::run(*b, cfg));
-        benchlab::print_row(table, results.back(), results.size() == 1, name_width);
+        benchlab::print_row(table, results.back(), results.size() == 1, name_width, baseline ? &*baseline : nullptr);
     }
     if (format == "table") return 0;
 

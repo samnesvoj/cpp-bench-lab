@@ -15,7 +15,7 @@ else()
   add_compile_options(-Wall -Wextra -Wpedantic -Wconversion)
 endif()
 
-add_library(benchlab src/harness.cpp src/report.cpp)
+add_library(benchlab src/harness.cpp src/report.cpp src/baseline.cpp)
 target_include_directories(benchlab PUBLIC include)
 
 # Benchmarks register themselves at static-init time, so they are linked as an OBJECT library
@@ -36,5 +36,7 @@ add_test(NAME list COMMAND cpp-bench-lab --list)
 add_test(NAME export-json COMMAND cpp-bench-lab --quick --filter "vector sum" --format json --output results.json)
 add_test(NAME export-csv COMMAND cpp-bench-lab --quick --filter "vector sum" --format csv)
 set_tests_properties(export-csv PROPERTIES PASS_REGULAR_EXPRESSION "group,name,n,repetitions")
+add_test(NAME compare COMMAND cpp-bench-lab --quick --filter "vector sum" --compare results.json)
+set_tests_properties(compare PROPERTIES DEPENDS export-json PASS_REGULAR_EXPRESSION "vs baseline")
 add_test(NAME bad-format COMMAND cpp-bench-lab --format xml)
 set_tests_properties(bad-format PROPERTIES WILL_FAIL TRUE)
